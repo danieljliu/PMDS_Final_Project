@@ -1,0 +1,11 @@
+Team: Aatrox, Zoe, Idas, Kayn, Volibear, Aurelion sol, Ao shin
+
+Active Traits: Shimmerscale_3 Spellthief_1 Astral_1 Tempest_1
+
+Required Spaces: 10
+
+Bonuses:
+Shimmerscale_3: 3 unique items
+Spellthief_1: Nab a new Ability after each cast and at the start of every round
+Astral_1: 10 Ability Power
+Tempest_1: 8% damage 25% Attack Speed

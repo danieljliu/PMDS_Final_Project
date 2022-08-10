@@ -1,73 +1,62 @@
-from library import initialize_data
-import csv
-import pandas
+from library import *
 import streamlit as st
 
-
-with open('data/tft_match_history.csv') as file:
-    reader = csv.reader(file)
-    header = next(reader)
-    tst = next(reader)
-
-    placement = tst[0]
-
-# print(header[33:])
-champs = header[33:]
-champ_indices = {}
-for i in range(len(champs)):
-    if i % 4 == 0:
-        champ_indices[champs[i]] = i
-
-#print(champ_indices)
-#print(len(champ_indices.keys()))
-
-champ_dict = initialize_data('champion')
-trait_dict = initialize_data('trait')
-
-temp = pandas.read_csv('data/tft_match_history.csv',low_memory=False)
-
-champs_df = temp[temp.columns[temp.columns.isin(champ_indices.keys())]]
-
-
-
-def calculate_trait_bonus(traits):
-    active_traits = []
-    for trait, value in traits.items():
-        trait_level = 0
-        milestones = trait_dict[trait].milestones
-
-        for milestone in milestones:
-            if value < int(milestone):
-                break
-            trait_level += 1
-
-        if trait_level > 0:
-            active_traits.append(trait + 'lvl' + str(trait_level))
-    return active_traits
-
-def test():
-    team = []
-    traits = {}
-    user_input = input("Enter a champion: ")
-    if user_input == "quit":
-        team = []
-        names = []
-
-    if champ_dict.get(user_input,0) == 0:
-        print("Not a champion, try re-entering the name")
-
-    champ = champ_dict[user_input]
-    team.append(champ.name)
-    for trait, value in champ.trait.items():
-        traits[trait] = traits.get(trait,0) + value
-
-    print('Team: ' + ' '.join(team))
-    print('Active Traits: ' + ' '.join(calculate_trait_bonus(traits)))
-
 def main():
-    st.title("TFT-lytics")
-    st.subheader("Final Project Submission by Daniel Liu")
-    menu = ["Tier List", "Computer Vision"]
-    choice = st.sidebar.selectbox("Menu", menu)
+    st.set_page_config(layout="wide")
+    overview,tier_lists,team_designer,analytics,data = st.tabs(["Overview","Tier Lists", "Team Designer", "Interactive Analytics","Data"])
+
+    with overview:
+        st.title("TFT-lytics")
+        st.subheader("PMDS Final Project Submission by Daniel Liu")
+        st.write('TFT-Lytics is a Streamlit data app that uses competitive '
+                 'TFT match data to generate analyses ranking the different champions and traits in competitive use. '
+                 'There is also a team-picker function so that you can try different combinations of champions and '
+                 'the resulting bonuses.')
+        st.subheader('Overview of Sections:')
+        st.write('Tier Lists: View lists of champions/traits/augments/items ranked by appearance in winning games')
+        st.write('Team Designer: View lists of champions/traits/augments/items ranked by appearance in winning games')
+        st.write('Interactive Analytics: Displays interactive charts visualizing the distribution of gameplay variables (champions/traits/augments) '
+                 'based on final placement (1st - 8th)')
+        st.write("Data: Browse through the data that all the analytics and figures are based off of")
+
+    with tier_lists:
+        st.title('Tier Lists')
+        st.write('*All tier lists are based off appearance rate in top-4 placing players')
+
+        item_df, augments_df, champions_df, traits_df = generate_placement_dfs(4)
+
+
+
+        st.subheader('Champions')
+        st.dataframe(champions_df)
+        st.subheader('Augments')
+        st.dataframe(augments_df)
+        st.subheader('Items')
+        st.dataframe(item_df)
+        st.subheader('Traits')
+        st.dataframe(traits_df)
+
+
+    with team_designer:
+        st.title("Team Designer")
+        team_designer = st.multiselect(label='Select champions to add to your team',
+                                       options=[champ.capitalize() for champ in champ_dict.keys()])
+        team,trait_bonuses,bonuses,spaces = display_bonuses(team_designer)
+        st.button('Save Team to File',on_click=write_team(team,trait_bonuses,bonuses,spaces))
+
+    with analytics:
+        st.title("Interactive Analytics")
+        st.pyplot(generate_champ_chart(champions_df))
+
+    with data:
+        st.title("Data")
+        st.subheader('Challenger TFT Match History - Raw')
+        st.dataframe(pd.read_csv('data/tft_match_history.csv',low_memory=False))
+
+        st.subheader('TFT Set 7 Champion Data')
+        st.dataframe(pd.read_csv('data/champions.csv'))
+
+        st.subheader('TFT Set 7 Trait Data')
+        st.dataframe(pd.read_csv('data/traits.csv', index_col=False,on_bad_lines='skip'))
 
 main()
