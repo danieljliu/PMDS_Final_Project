@@ -1,16 +1,21 @@
 from Champion import Champion
-from Trait import Trait
+from Champ_Trait import Champ_Trait
+from Comp_Trait import Comp_Trait
 import csv
 import streamlit as st
 import pandas as pd
 import numpy as np
+import matplotlib.pyplot as plt
+
+
+raw_df = pd.read_csv('data/tft_match_history.csv', low_memory=False)
 
 
 def convert_str(trait_str, delim):
-    dic = {}
+    lst = []
     for trait in trait_str.split(delim):
-        dic[trait[:-1]] = int(trait[-1])
-    return dic
+        lst.append(Champ_Trait(name = trait[:-1], value=int(trait[-1])))
+    return lst
 
 
 def initialize_data(type):
@@ -37,7 +42,7 @@ def initialize_data(type):
                 bonus = col[2].split('/')
                 innate = col[3]
 
-                trait = Trait(name, milestones, bonus, innate)
+                trait = Comp_Trait(name, milestones, bonus, innate)
                 data_dict[name] = trait
 
     return data_dict
@@ -73,7 +78,7 @@ def calculate_trait_bonus(traits):
     active_traits = []
     for trait, value in traits.items():
         trait_level = 0
-        milestones = trait_dict[trait].milestones
+        milestones = trait_dict[trait.name].milestones
 
         for milestone in milestones:
             if value < int(milestone):
@@ -81,7 +86,7 @@ def calculate_trait_bonus(traits):
             trait_level += 1
 
         if trait_level > 0:
-            active_traits.append(trait.capitalize() + '_' + str(trait_level))
+            active_traits.append(trait.name.capitalize() + '_' + str(trait_level))
     return active_traits
 
 
@@ -106,8 +111,8 @@ def display_bonuses(user_input):
     for champ in user_input:
         champ = champ_dict[champ.lower()]
         team.append(champ.name.capitalize())
-        for trait, value in champ.trait.items():
-            traits[trait] = traits.get(trait, 0) + value
+        for trait in champ.trait:
+            traits[trait] = traits.get(trait, 0) + trait.value
 
     spaces = len(team)
     if traits.get('dragon', 0) > 0:
@@ -137,23 +142,29 @@ def write_team(team, trait_bonuses, bonuses, spaces):
 
 
 def get_augments(df):
-    return (pd.DataFrame(pd.concat([df['augment0'], df['augment1'], df['augment2']]), columns=['augment']).groupby(
-        'augment').value_counts().sort_values(ascending=False) / len(df)).to_frame().reset_index().rename(
-        columns={'index': 'Augment', 0: 'Frequency of Appearance'})
+    return (pd.DataFrame(pd.concat([df['augment0'], df['augment1'], df['augment2']]), columns=['Augment']).groupby(
+        'Augment').value_counts().sort_values(ascending=False)).to_frame().reset_index().rename(
+        columns={'index': 'Augment', 0: 'Counts of Appearance'})
 
 
 def get_champions(df):
     return (pd.DataFrame(
         df[df.columns[df.columns.isin(champ_indices.keys())]].notnull().astype('int')).sum().sort_values(
-        ascending=False) / len(df)).to_frame().reset_index().rename(
-        columns={'index': 'Champion', 0: 'Frequency of Appearance'})
+        ascending=False)).to_frame().reset_index().rename(
+        columns={'index': 'Champion', 0: 'Counts of Appearance'})
 
 
 def get_traits(df):
     return (df.loc[:, 'Set7_Assassin':'Set7_Whispers'].replace(0.0, np.nan).notnull().astype('int').sum().sort_values(
-        ascending=False) / len(df)).to_frame().reset_index().rename(
-        columns={'index': 'Trait', 0: 'Frequency of Appearance'})
+        ascending=False)).to_frame().reset_index().rename(
+        columns={'index': 'Trait', 0: 'Counts of Appearance'})
 
+
+def get_traits_specific(df):
+    return df.loc[:, 'Set7_Assassin':'Set7_Whispers'].replace(np.nan, 0.0)
+
+def get_champ_specific(df):
+    return df[df.columns[df.columns.isin(champ_indices.keys())]].replace(np.nan, 0.0)
 
 def get_items(df):
     items = df.filter(regex='_item')
@@ -164,20 +175,26 @@ def get_items(df):
             if item:
                 item_list.append(item)
 
-    return (pd.Series(item_list).dropna().value_counts().sort_values(ascending=False).drop('None')/len(df)).to_frame().reset_index().rename(columns={'index':'Item',0:'Frequency of Appearance'})
+    return (pd.Series(item_list).dropna().value_counts().sort_values(ascending=False).drop(
+        'None')).to_frame().reset_index().rename(columns={'index': 'Item', 0: 'Counts of Appearance'})
 
 
 def generate_placement_dfs(placement: int):
-    all_data_df = pd.read_csv('data/tft_match_history.csv', low_memory=False)
-    df = all_data_df[all_data_df['placement'] <= placement]
+    global raw_df
+
+    df = raw_df[raw_df['placement'] <= placement]
     item_df = get_items(df)
     augments_df = get_augments(df)
     champions_df = get_champions(df)
     traits_df = get_traits(df)
 
-    return item_df, augments_df, champions_df, traits_df
+    return item_df, augments_df, champions_df, traits_df, len(df)
 
-def get_total_bonus(df):
+top_4_item_df, top_4_augments_df, top_4_champions_df, top_4_traits_df, _ = generate_placement_dfs(4)
+all_item_df, all_augments_df, all_champions_df, all_traits_df, _ = generate_placement_dfs(8)
+
+
+def individual_level_counts(df):
     traits = {}
     for col in df:
         for row in df[col]:
@@ -185,11 +202,44 @@ def get_total_bonus(df):
             if row < 1:
                 continue
 
-            traits[trait+str(int(row))] = traits.get(trait+str(int(row)),0) + 1
+            traits[trait + str(int(row))] = traits.get(trait + str(int(row)), 0) + 1
 
-    return pd.Series(traits)
+    return pd.Series(traits).to_frame().reset_index()
 
-def generate_champ_chart(df):
-    res = pd.DataFrame(df[df.columns[df.columns.isin(champ_indices.keys())]].replace(np.nan, 0.0))
 
-    return
+def calculate_winrate(key):
+    global raw_df, top_4_item_df, top_4_augments_df, top_4_champions_df, top_4_traits_df, all_item_df, all_augments_df, all_champions_df, all_traits_df
+
+    if key == 'Item':
+        top_4_df = top_4_item_df
+        all_df = all_item_df
+    elif key == 'Augment':
+        top_4_df = top_4_augments_df
+        all_df = all_augments_df
+    elif key == 'Trait':
+        top_4_df = individual_level_counts(get_traits_specific(raw_df[raw_df['placement'] <= 4])).rename(
+            columns={'index': 'Trait', 0: 'Counts of Appearance'})
+        all_df = individual_level_counts(get_traits_specific(raw_df[raw_df['placement'] <= 8])).rename(
+            columns={'index': 'Trait', 0: 'Counts of Appearance'})
+    else:  # key == Champion
+        top_4_df = individual_level_counts(get_champ_specific(raw_df[raw_df['placement'] <= 4])).rename(
+            columns={'index': 'Champion', 0: 'Counts of Appearance'})
+        all_df = individual_level_counts(get_champ_specific(raw_df[raw_df['placement'] <= 8])).rename(
+            columns={'index': 'Champion', 0: 'Counts of Appearance'})
+
+    merged_df = pd.merge(top_4_df, all_df, on=key)
+    win_rate = merged_df['Counts of Appearance_x'] / merged_df['Counts of Appearance_y']
+
+    res = pd.DataFrame(zip(merged_df[key], win_rate)).rename(
+        columns={0: key, 1: 'Win Rate'}).sort_values(by='Win Rate', ascending=False)
+
+    if key == 'Item':
+        res = res.drop(102).reset_index(drop=True)
+    return res
+
+def plot_fig(key,df,view):
+    fig = plt.figure()
+    plt.bar(df[key][:view], df['Counts of Appearance'][:view])
+    plt.xticks(rotation=90)
+    plt.ylabel('Frequency of Appearance')
+    st.pyplot(fig)

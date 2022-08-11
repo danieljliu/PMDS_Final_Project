@@ -1,11 +1,10 @@
-Team: Aatrox, Zoe, Idas, Kayn, Volibear, Aurelion sol, Ao shin
+Team: Sejuani, Shen, Idas
 
-Active Traits: Shimmerscale_3 Spellthief_1 Astral_1 Tempest_1
+Active Traits: Guild_1 Shimmerscale_1 Dragon_1
 
-Required Spaces: 10
+Required Spaces: 3
 
 Bonuses:
-Shimmerscale_3: 3 unique items
-Spellthief_1: Nab a new Ability after each cast and at the start of every round
-Astral_1: 10 Ability Power
-Tempest_1: 8% damage 25% Attack Speed
+Guild_1: 100% Guild bonus
+Shimmerscale_1: 1 unique item
+Dragon_1: With exactly 1 Dragon champions Dragons provide +3 to the marked trait but require 2 team slots. They also gain 600 bonus Health

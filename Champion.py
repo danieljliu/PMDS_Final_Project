@@ -1,5 +1,8 @@
+import Champ_Trait
+
+
 class Champion:
-    def __init__(self, name: str, trait: dict, cost: int):
+    def __init__(self, name: str, trait: Champ_Trait, cost: int):
         self.name = name
         self.trait = trait
         self.cost = cost
